@@ -2,19 +2,29 @@ import os
 import shutil
 import json
 import re
+import logging
 
 EXTENSION_FILE_NAME = "extensions.json"
-
+LOG_FILE_NAME = "log.txt"
 
 class Organizer:
 
     def __init__(self, given_path: str):
         self.path = self._return_path_if_exists(input_path=given_path)
         self._extension_list = self._read_extension_json_file()
+        logging.basicConfig(
+            filename=LOG_FILE_NAME,
+            filemode='a',
+            level=logging.DEBUG,
+            format="{asctime} - {levelname} - {message}",
+            style="{",
+            datefmt="%d-%m-%Y %H:%M:%S"
+        )
 
     def _return_path_if_exists(self, input_path: str) -> str:
         if os.path.exists(input_path):
             return input_path
+        logging.error(f"The given path '{input_path}' does not exist")
         raise NotADirectoryError(f"The given path '{input_path}' does not exist")
 
     def _read_extension_json_file(self) -> dict:
@@ -37,7 +47,12 @@ class Organizer:
     def _move_file(self, file_path: str, destination: str):
         if not self._is_paths_equal(curr_path=file_path,
                                 destination_path=destination):
+            logging.debug(f"{self._get_file_name_from_full_path(file_path=file_path)} is moved to {destination}")
             shutil.move(file_path, destination)
+            return 1
+        
+        logging.debug(f"{self._get_file_name_from_full_path(file_path=file_path)} is already in the correct folder")
+        return 0
 
     def _is_paths_equal(self, curr_path: str, destination_path: str) -> bool:
         curr_path_normalized = os.path.normpath(curr_path)
@@ -68,13 +83,17 @@ class Organizer:
         return f".{re.split(r"[\\/]", file_path)[-1]}"
 
     def start_organize_files(self):
+        logging.debug("Folder organizer is starting...")
         dict_of_files = self._list_path_dir(self.path)
+        num_files_replaced = 0
         for key, value in dict_of_files.items():
             curr_extension_name = self._get_extension_name_of_given_file_name(
                 file_name=key
             )
             target_folder_name = self._extension_list.get(curr_extension_name, "Other")
             self._create_folder_if_does_not_exist(folder_name=target_folder_name)
-            self._move_file(
+            num_files_replaced += self._move_file(
                 file_path=value, destination=f"{self.path}/{target_folder_name}"
             )
+        
+        return num_files_replaced, "Operation is completed successfully"
